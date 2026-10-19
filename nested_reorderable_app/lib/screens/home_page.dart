@@ -6,11 +6,16 @@
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-
 import '../database/database_helper.dart';
 import '../models/item_node.dart';
+import '../widgets/app_drawer.dart';
 import 'add_edit_page.dart';
 import 'pack_detail_page.dart';
+
+/// Lets HomePage find out when it becomes visible again (see didPopNext
+/// below). Registered in main.dart under navigatorObservers.
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,7 +24,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with RouteAware {
   final _db = DatabaseHelper.instance;
   late Future<List<ItemNode>> _packsFuture;
 
@@ -29,8 +34,26 @@ class _HomePageState extends State<HomePage> {
     _reload();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) routeObserver.subscribe(this, route);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  /// Called when a page opened on top of Home (a pack, possibly reached
+  /// through the drawer) is closed and Home is visible again. Packs may
+  /// have been deleted or added meanwhile, so reload the list.
+  @override
+  void didPopNext() => _reload();
+
   void _reload() {
-    // setState(() => _packsFuture = _db.getPacks());
     setState(() {
       _packsFuture = _db.getPacks();
     });
@@ -43,6 +66,7 @@ class _HomePageState extends State<HomePage> {
         builder: (_) => const AddEditPage(
           title: 'Add new pack',
           allowedTypes: [ItemType.pack],
+          warningMsg: null,
         ),
       ),
     );
@@ -63,6 +87,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Nested reorderable app')),
+      drawer: AppDrawer(onPackAdded: _reload),
       body: FutureBuilder<List<ItemNode>>(
         future: _packsFuture,
         builder: (context, snapshot) {
@@ -73,6 +98,7 @@ class _HomePageState extends State<HomePage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              // Add new pack button
               Center(
                 child: OutlinedButton(
                   onPressed: _addNewPack,
@@ -89,6 +115,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
+              
+              // pack list
               if (packs.isEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 40),

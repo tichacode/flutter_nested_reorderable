@@ -30,14 +30,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../database/database_helper.dart';
 import '../models/item_node.dart';
 import 'view_tree.dart';
-
-/// How many levels of "Nest" are allowed, counted from the Pack.
-/// A Nest directly inside a Pack is depth 1; this constant is the
-/// deepest a Nest is allowed to be. Items are never subject to this
-/// limit - only Nest-inside-Nest counts.
-const int kMaxNestDepth = 4;
 
 // ---------------------------------------------------------------------
 // Move session + tree-walking helpers
@@ -288,12 +283,24 @@ class _NormalRow extends StatelessWidget {
     required this.onSelectSlot,
   });
 
+  Widget _getIcon(ItemType type) {
+    if (type == ItemType.item) {
+      return Image.asset("icon_in_app/icon_leaf.png", color: Colors.grey.shade600, height: 30,);
+    } else if (type == ItemType.nested) {
+      return Image.asset("icon_in_app/icon_nest.png", color: Colors.grey.shade600, height: 30,);
+    } else {
+      return const SizedBox(height: 0,);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final borderColor = Theme.of(context).colorScheme.primary;
 
     final header = Row(
       children: [
+        _getIcon(node.type),
+        const SizedBox(width: 10,),
         Expanded(
           child: Text(
             node.name,
@@ -356,28 +363,34 @@ class _MoveSlotTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: selected ? Colors.green.shade300 : null,
-          border: Border.all(
-            color: selected ? Colors.green.shade700 : primary.withOpacity(0.4),
-          ),
+    return Column(
+      children: [
+        SizedBox(height: 10,),
+        InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'Move here',
-          style: TextStyle(
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-            color: selected ? Colors.black : Colors.grey.shade600,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: selected ? Colors.green.shade300 : null,
+              border: Border.all(
+                color: selected ? Colors.green.shade700 : primary.withOpacity(0.4),
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'Move here',
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? Colors.black : Colors.grey.shade600,
+              ),
+            ),
           ),
         ),
-      ),
+        SizedBox(height: 10,),
+      ]
     );
   }
 }
@@ -397,7 +410,13 @@ class _LeafLabel extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1.5),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+      child: Row(
+        children: [
+          Image.asset("icon_in_app/icon_leaf.png", color: Colors.grey.shade600, height: 30,),
+          const SizedBox(width: 10,),
+          Text(name, style: const TextStyle(fontWeight: FontWeight.bold))
+        ]
+      ),
     );
   }
 }
@@ -421,7 +440,13 @@ class _NestLabelBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              Image.asset("icon_in_app/icon_nest.png", color: Colors.grey.shade600, height: 30,),
+              const SizedBox(width: 10,),
+              Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ]
+          ),
           const SizedBox(height: 12),
           child,
         ],

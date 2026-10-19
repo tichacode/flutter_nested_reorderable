@@ -8,27 +8,16 @@
 //   - loading a whole Pack as a nested tree of ItemNode
 //   - saving a new sibling order (after a reorder or a "Move to")
 //
-// NOTE ON THE TABLE SCHEMA
-// -------------------------
-// You asked for exactly these 4 columns:
-//   id INTEGER PRIMARY KEY, name TEXT, type TEXT, id_parent INTEGER
-//
-// I added ONE extra column: `sort_order INTEGER`.
-// Reason: a row's position among its siblings has to be saved
-// *somewhere*, and the `id` column can't be reused for that (ids are
-// assigned by SQLite and changing them would mean re-writing every
-// child's id_parent too, which is fragile). `sort_order` just remembers
-// "this row is the Nth child of its parent". If you don't want this
-// extra column, you can remove it, but then re-ordering (including
-// "Move to") will only last until the app is closed.
 // -----------------------------------------------------------------------
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-
 import '../models/item_node.dart';
+
+/// How many levels of "nest in nest" are allowed
+final int kMaxNestDepth = 4;
 
 class DatabaseHelper {
   DatabaseHelper._internal();
@@ -44,8 +33,6 @@ class DatabaseHelper {
   static const colIdParent = 'id_parent';
   static const colSortOrder = 'sort_order';
 
-  /// The id used to mean "no parent" - matches your example data
-  /// (Pack 1 / Pack 2 both have id_parent = 0).
   static const rootId = 0;
 
   Database? _db;
@@ -57,9 +44,7 @@ class DatabaseHelper {
 
   Future<Database> _initDb() async {
     if (kIsWeb) {
-      // On Flutter Web there is no filesystem, so sqflite alone can't
-      // work. sqflite_common_ffi_web stores the data in the browser
-      // (IndexedDB) instead.
+      // sqflite_common_ffi_web stores the data in the browser (IndexedDB) instead.
       final factory = databaseFactoryFfiWeb;
       return factory.openDatabase(
         _dbName,
@@ -182,6 +167,7 @@ class DatabaseHelper {
     );
   }
 
+  /// use when action move impact with siblings
   /// Persists a new order for one level of siblings (used after a
   /// "Move to" is confirmed). Pass the children list in its NEW order;
   /// this writes 0, 1, 2, ... into `sort_order` for each one.
@@ -199,10 +185,7 @@ class DatabaseHelper {
     await batch.commit(noResult: true);
   }
 
-  /// Changes [id]'s parent - used by the "Move to" picker when a node
-  /// is being moved to a different container. (If it's only being
-  /// repositioned among its current siblings, you don't need this -
-  /// just call saveSiblingOrder.)
+  /// use when node move to new parent
   Future<void> moveNode(int id, int newIdParent) async {
     final db = await database;
     await db.update(
@@ -217,8 +200,7 @@ class DatabaseHelper {
   // DELETE
   // ---------------------------------------------------------------------
 
-  /// Deletes [id] AND every descendant of it (a Pack full of Nests and
-  /// Items, or just one Item - works for any type).
+  /// Deletes [id] AND every descendant of it
   Future<void> deleteNodeCascade(int id) async {
     final children = await getChildren(id);
     for (final child in children) {
@@ -226,5 +208,53 @@ class DatabaseHelper {
     }
     final db = await database;
     await db.delete(table, where: '$colId = ?', whereArgs: [id]);
+  }
+
+  // ---------------------------------------------------------------------
+  // RESTORE (used by the edit-mode "X" button)
+  // ---------------------------------------------------------------------
+
+  /// Puts everything under [snapshot] (a Pack, as loaded by loadPackTree
+  /// before editing started) back exactly as it was: same ids, names,
+  /// parents and order. Anything added during editing is removed,
+  /// anything deleted is brought back, and moves / renames are undone.
+  ///
+  /// Runs as ONE transaction, so if something fails the database is left
+  /// as it was instead of half-restored. The Pack's own row is not
+  /// touched - only what is inside it.
+  Future<void> restoreSubtree(ItemNode snapshot) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _deleteDescendants(txn, snapshot.id);
+      await _insertDescendants(txn, snapshot);
+    });
+  }
+
+  Future<void> _deleteDescendants(DatabaseExecutor txn, int parentId) async {
+    final rows = await txn.query(
+      table,
+      columns: [colId],
+      where: '$colIdParent = ?',
+      whereArgs: [parentId],
+    );
+    for (final row in rows) {
+      final childId = row[colId] as int;
+      await _deleteDescendants(txn, childId);
+      await txn.delete(table, where: '$colId = ?', whereArgs: [childId]);
+    }
+  }
+
+  Future<void> _insertDescendants(DatabaseExecutor txn, ItemNode parent) async {
+    for (var i = 0; i < parent.children.length; i++) {
+      final child = parent.children[i];
+      await txn.insert(table, {
+        colId: child.id, // same id as before, so nothing is renumbered
+        colName: child.name,
+        colType: child.type.dbValue,
+        colIdParent: parent.id,
+        colSortOrder: i,
+      });
+      await _insertDescendants(txn, child);
+    }
   }
 }

@@ -29,11 +29,19 @@ class AddNodeResult {
 class AddEditPage extends StatefulWidget {
   final String title;
   final List<ItemType> allowedTypes;
+  final String? warningMsg;
+
+  /// When set, the Name field starts with this text. Used by the kebab
+  /// menu's "Edit" (rename). Pass a single-entry allowedTypes in that case
+  /// so the Type dropdown stays hidden - the type can't be changed.
+  final String? initialName;
 
   const AddEditPage({
     super.key,
     required this.title,
     required this.allowedTypes,
+    required this.warningMsg,
+    this.initialName,
   });
 
   @override
@@ -48,7 +56,14 @@ class _AddEditPageState extends State<AddEditPage> {
   @override
   void initState() {
     super.initState();
-    _selectedType = widget.allowedTypes.first;
+    final startName = widget.initialName ?? '';
+    _nameController.text = startName;
+    _nameController.selection = TextSelection.collapsed(offset: startName.length);
+    if (widget.allowedTypes.contains(ItemType.none)) {
+      _selectedType = ItemType.none;
+    } else {
+      _selectedType = widget.allowedTypes.first;
+    } 
   }
 
   @override
@@ -72,6 +87,17 @@ class _AddEditPageState extends State<AddEditPage> {
     final showTypePicker = widget.allowedTypes.length > 1;
     final radius = BorderRadius.circular(28);
 
+    Widget _addWarningBox() {
+      if (widget.warningMsg != null) {
+        return Center(
+          child: Text(widget.warningMsg ?? '', style:TextStyle(color: Colors.grey.shade600)),
+        );
+      } else {
+        return SizedBox(height: 0);
+      }
+    }
+    
+
     return Scaffold(
       appBar: AppBar(leading: BackButton(onPressed: _cancel)),
       body: SafeArea(
@@ -88,6 +114,7 @@ class _AddEditPageState extends State<AddEditPage> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
+                _addWarningBox(),
                 const SizedBox(height: 32),
                 const Text('Name', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
@@ -96,7 +123,7 @@ class _AddEditPageState extends State<AddEditPage> {
                   autofocus: true,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: InputDecoration(
-                    hintText: '${_selectedType.label} name',
+                    hintText: 'Please enter name',
                     border: OutlineInputBorder(borderRadius: radius),
                   ),
                   validator: (value) => (value == null || value.trim().isEmpty)
@@ -108,8 +135,9 @@ class _AddEditPageState extends State<AddEditPage> {
                   const Text('Type', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<ItemType>(
-                    value: _selectedType,
+                    // value: _selectedType,
                     decoration: InputDecoration(
+                      hintText: 'Please select type',
                       border: OutlineInputBorder(borderRadius: radius),
                     ),
                     items: [
@@ -118,6 +146,12 @@ class _AddEditPageState extends State<AddEditPage> {
                     ],
                     onChanged: (value) {
                       if (value != null) setState(() => _selectedType = value);
+                    },
+                    validator: (value) {
+                      if ((value == null && _selectedType == ItemType.none) || value == ItemType.none) {
+                        return 'Please select type'; // Error message text
+                      }
+                      return null; // Return null if the input is valid
                     },
                   ),
                 ],

@@ -6,7 +6,6 @@
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-
 import 'screens/home_page.dart';
 
 void main() {
@@ -21,6 +20,7 @@ class NestedReorderableApp extends StatelessWidget {
     return MaterialApp(
       title: 'Nested reorderable app',
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [routeObserver], // defined in home_page.dart
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF102A54)),
         useMaterial3: true,

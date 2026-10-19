@@ -3,28 +3,24 @@
 //
 // The data model for a single row of `items_list_table`.
 //
-// This file has NO Flutter UI code in it on purpose - it only describes
-// the shape of the data, so it can be reused by the database layer, the
-// screens, and the widgets without any of them depending on each other.
 // -----------------------------------------------------------------------
 
-/// The three kinds of rows that can exist in `items_list_table`.
-///
-/// This matches the `type` column exactly:
+/// Item types
+///   - none   -> for show none selected in input list
 ///   - pack   -> a top-level container (id_parent = 0)
 ///   - nested -> a "Nest" that can contain more nests or items
 ///   - item   -> a leaf row, cannot contain children
 enum ItemType {
+  none,
   pack,
   nested,
   item;
 
-  /// The exact string stored in the database `type` column.
-  /// Kept separate from [label] because the wireframe shows the word
-  /// "Nest" in the UI, but the spec says the stored value must be
-  /// "nested".
+  // for database
   String get dbValue {
     switch (this) {
+      case ItemType.none:
+        return 'Please select type';
       case ItemType.pack:
         return 'pack';
       case ItemType.nested:
@@ -34,9 +30,11 @@ enum ItemType {
     }
   }
 
-  /// The text shown to the user in menus / dropdowns.
+  // for the user in menus / dropdowns.
   String get label {
     switch (this) {
+      case ItemType.none:
+        return 'Please select type';
       case ItemType.pack:
         return 'Pack';
       case ItemType.nested:
@@ -46,7 +44,7 @@ enum ItemType {
     }
   }
 
-  /// Parses the string coming back from SQLite into an [ItemType].
+  // Parses the string coming back from SQLite into an [ItemType].
   static ItemType fromDbValue(String value) {
     switch (value) {
       case 'pack':
@@ -111,6 +109,19 @@ class ItemNode {
   /// in the UI code to decide whether to draw a nested container or a
   /// simple box.
   bool get isLeaf => type == ItemType.item;
+
+  /// A full, independent copy of this node and everything under it.
+  /// Used to remember what a Pack looked like before editing started.
+  ItemNode clone() {
+    return ItemNode(
+      id: id,
+      name: name,
+      type: type,
+      idParent: idParent,
+      sortOrder: sortOrder,
+      children: [for (final child in children) child.clone()],
+    );
+  }
 
   @override
   String toString() =>
