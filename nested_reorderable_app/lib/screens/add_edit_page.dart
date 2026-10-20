@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------
 // add_edit_page.dart
 //
-// One shared form screen used in two places:
+// One shared input form screen used in two places:
 //   1. Home page "Add new pack"        -> allowedTypes: [ItemType.pack]
 //   2. Inside a Pack, "Add new"        -> allowedTypes: [ItemType.nested,
 //                                          ItemType.item] (or just
@@ -9,13 +9,9 @@
 //                                          limit has been reached)
 //
 // When allowedTypes has only one entry, the Type dropdown is hidden
-// entirely (that's the "Add new pack" wireframe, which only asks for a
-// name). When it has more than one entry, a dropdown is shown so the
-// user can choose "Nest" or "Item".
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-
 import '../models/item_node.dart';
 
 /// What this page hands back to whoever pushed it, via Navigator.pop.
@@ -30,11 +26,7 @@ class AddEditPage extends StatefulWidget {
   final String title;
   final List<ItemType> allowedTypes;
   final String? warningMsg;
-
-  /// When set, the Name field starts with this text. Used by the kebab
-  /// menu's "Edit" (rename). Pass a single-entry allowedTypes in that case
-  /// so the Type dropdown stays hidden - the type can't be changed.
-  final String? initialName;
+  final String? initialName; // When set, the Name field starts with this text.
 
   const AddEditPage({
     super.key,
@@ -108,14 +100,19 @@ class _AddEditPageState extends State<AddEditPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // form name
                 Center(
                   child: Text(
                     widget.title,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
+
+                // warning
                 _addWarningBox(),
                 const SizedBox(height: 32),
+
+                // input name
                 const Text('Name', style: TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -130,6 +127,8 @@ class _AddEditPageState extends State<AddEditPage> {
                       ? 'Please enter a name'
                       : null,
                 ),
+
+                // input type
                 if (showTypePicker) ...[
                   const SizedBox(height: 24),
                   const Text('Type', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -156,6 +155,8 @@ class _AddEditPageState extends State<AddEditPage> {
                   ),
                 ],
                 const SizedBox(height: 40),
+
+                // save and cancel button
                 Center(
                   child: SizedBox(
                     width: 220,

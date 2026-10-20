@@ -20,12 +20,12 @@
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
-
 import '../database/database_helper.dart';
 import '../models/item_node.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/edit_tree.dart';
 import '../widgets/view_tree.dart';
+import '../widgets/move_feature.dart';
 import 'add_edit_page.dart';
 
 class PackDetailPage extends StatefulWidget {
@@ -43,11 +43,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
   ItemNode? _pack;
   bool _isEditing = false;
   MoveSession? _moveSession;
-
-  /// Copy of the pack as it was when edit mode started. Edits are still
-  /// saved immediately; this is only used by the X button to put
-  /// everything back (see _cancelEdit).
-  ItemNode? _editSnapshot;
+  ItemNode? _editSnapshot; // Copy of the pack when edit mode started. Use when cancel edit.
 
   @override
   void initState() {
@@ -61,7 +57,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     setState(() => _pack = pack);
   }
 
-  /// Starts edit mode and remembers what the pack looks like right now.
+  // Starts edit mode + snapshot data
   void _enterEditMode() {
     final pack = _pack;
     if (pack == null) return;
@@ -71,7 +67,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     });
   }
 
-  /// Checkmark: leave edit mode and keep everything that was changed.
+  // close edit mode
   void _exitEditMode() {
     setState(() {
       _isEditing = false;
@@ -80,10 +76,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     });
   }
 
-  /// X: go back to how the pack was before edit mode started. Because
-  /// edits are saved as they happen, this rewrites the database from the
-  /// snapshot (restoreSubtree). Asks first, but only if something
-  /// actually changed.
+  // go back to how the pack was before edit mode started (rewrites the database from the snapshot)
   Future<void> _cancelEdit() async {
     final snapshot = _editSnapshot;
     final pack = _pack;
@@ -119,8 +112,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     _exitEditMode();
   }
 
-  /// True if [a] and [b] have the same names, types and order all the
-  /// way down (used to tell whether anything changed during editing).
+  // ture if a nd b have all same node in pack
   bool _sameTree(ItemNode a, ItemNode b) {
     if (a.id != b.id || a.name != b.name || a.type != b.type) return false;
     if (a.children.length != b.children.length) return false;
@@ -206,9 +198,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     if (mounted) Navigator.pop(context);
   }
 
-  /// Used only by the empty-state "Add new item" button, so a
-  /// brand-new pack doesn't force you through edit mode just to add
-  /// its very first row.
+  // when click "Add new item" button in empty pack
   Future<void> _addFirstChild(ItemNode pack) async {
     _enterEditMode();
     await _addChild(pack, 0);
@@ -216,9 +206,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
 
   // --- Edit (rename) -------------------------------------------------
 
-  /// Changes a Nest's or Item's name. The type can't be changed: passing
-  /// just [node.type] as the only allowed type makes AddEditPage hide
-  /// its Type dropdown.
+  /// Changes a Nest's or Item's name. The type can't be changed.
   Future<void> _editNode(ItemNode node) async {
     final result = await Navigator.push<AddNodeResult>(
       context,
@@ -235,43 +223,6 @@ class _PackDetailPageState extends State<PackDetailPage> {
 
     await _db.renameNode(node.id, result.name);
     await _reload();
-  }
-
-  // --- Kebab menu ----------------------------------------------------
-
-  Future<void> _onKebabTap(ItemNode node) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Center(child: Text('Edit')),
-              onTap: () => Navigator.pop(context, 'edit'),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Center(child: Text('Move to')),
-              onTap: () => Navigator.pop(context, 'move'),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              title: const Center(child: Text('Delete')),
-              onTap: () => Navigator.pop(context, 'delete'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (action == 'edit') {
-      await _editNode(node);
-    } else if (action == 'move') {
-      _startMove(node);
-    } else if (action == 'delete') {
-      await _deleteNode(node);
-    }
   }
 
   // --- Move ------------------------------------------------------------
@@ -320,8 +271,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     final sourceParent = findNode(pack, sourceParentId);
     if (destParent == null) return;
 
-    // Work out the destination's new child order first (moved node
-    // inserted at the chosen position), before writing anything.
+    // moved node inserted at the chosen position before writing anything.
     final destSiblings = List<ItemNode>.of(destParent.children)
       ..removeWhere((n) => n.id == movedNode.id);
     final insertAt = destIndex < 0
@@ -334,6 +284,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
     }
     await _db.saveSiblingOrder(destSiblings);
 
+    // reorder sort number of sibling after move
     if (destParentId != sourceParentId && sourceParent != null) {
       final remaining = List<ItemNode>.of(sourceParent.children)
         ..removeWhere((n) => n.id == movedNode.id);
@@ -342,6 +293,43 @@ class _PackDetailPageState extends State<PackDetailPage> {
 
     setState(() => _moveSession = null);
     await _reload();
+  }
+
+  // --- Kebab menu ----------------------------------------------------
+
+  Future<void> _onKebabTap(ItemNode node) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Center(child: Text('Edit')),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Center(child: Text('Move to')),
+              onTap: () => Navigator.pop(context, 'move'),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              title: const Center(child: Text('Delete')),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'edit') {
+      await _editNode(node);
+    } else if (action == 'move') {
+      _startMove(node);
+    } else if (action == 'delete') {
+      await _deleteNode(node);
+    }
   }
 
   // --- UI ------------------------------------------------------------
@@ -357,21 +345,19 @@ class _PackDetailPageState extends State<PackDetailPage> {
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return; // not editing: the page was closed normally
         if (_moveSession != null) {
-          _cancelMove(); // same as X while picking a move destination
+          _cancelMove(); // same as X button while picking a move destination
         } else {
-          _cancelEdit(); // same as X in edit mode (asks first if changed)
+          _cancelEdit(); // same as X button in edit mode (asks first if changed)
         }
       },
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Nested reorderable app'),
           // View mode: the drawer's hamburger icon shows automatically.
-          // Edit / move mode: no drawer and no back arrow - the check and
-          // X buttons are the only ways out.
+          // Edit / move mode: no drawer and no back arrow
           automaticallyImplyLeading: !_isEditing,
         ),
-        // The drawer (quick switch between packs / add pack) is only
-        // available outside edit mode.
+        // The drawer is only available outside edit mode.
         drawer: _isEditing ? null : AppDrawer(selectedPackId: widget.packId),
         body: SafeArea(
           child: pack == null
@@ -396,6 +382,7 @@ class _PackDetailPageState extends State<PackDetailPage> {
       padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
       child: Row(
         children: [
+          // pack name
           Expanded(
             child: Text(
               pack.name,
@@ -403,6 +390,8 @@ class _PackDetailPageState extends State<PackDetailPage> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
+
+          // move mode
           if (inMoveMode) ...[
             IconButton(
               icon: const Icon(Icons.check),
@@ -414,6 +403,8 @@ class _PackDetailPageState extends State<PackDetailPage> {
               tooltip: 'Cancel move',
               onPressed: _cancelMove,
             ),
+          
+          // edit mode
           ] else if (_isEditing) ...[
             IconButton(
               icon: const Icon(Icons.check),
@@ -425,6 +416,8 @@ class _PackDetailPageState extends State<PackDetailPage> {
               tooltip: 'Cancel changes',
               onPressed: _cancelEdit,
             ),
+          
+          // view mode
           ] else ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
