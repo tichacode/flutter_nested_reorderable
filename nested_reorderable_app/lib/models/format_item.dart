@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------
 // format_item.dart
 //
-// Keep format variable in one place
+// Keep reusable format in one place
 // -----------------------------------------------------------------------
 
 import 'package:flutter/material.dart';

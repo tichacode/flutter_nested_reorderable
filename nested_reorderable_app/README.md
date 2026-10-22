@@ -4,7 +4,7 @@ A Flutter app (Web + Android/iOS) for organizing things into **Packs**, where ea
 
 ## Features
 
-- Create and delete Packs, Nests, and Items
+- Create, update and delete Packs, Nests, and Items
 - Nest a Nest inside another Nest (max 4 levels; Items are not limited)
 - Move any Nest or Item to any position in the Pack, at any level
   - Tap ⋮ on a row → **Move to** → tap a **Move here** slot → ✓ to confirm, ✕ to cancel
@@ -60,6 +60,7 @@ lib/
 ├── main.dart
 ├── models/
 │   └── item_node.dart
+│   └── format_item.dart
 ├── database/
 │   └── database_helper.dart
 ├── screens/
@@ -69,15 +70,20 @@ lib/
 └── widgets/
     ├── view_tree.dart
     └── edit_tree.dart
+    └── move_feature.dart
+    └── app_drawer.dart
 ```
 
 | File | Description |
 |------|-------------|
 | `main.dart` | App entry point. Sets up `MaterialApp`/theme and opens `HomePage`. |
 | `models/item_node.dart` | Data model. `ItemType` enum (`pack` / `nested` / `item`) and `ItemNode`, one row of `items_list_table` plus its loaded `children`. |
+|| `models/format_item.dart` | Collect reusable format such as icons, nest box, item box |
 | `database/database_helper.dart` | All SQLite code: opens the database (Web or mobile), creates the table, insert / rename / delete (cascading), loads a whole Pack as a nested tree, saves sibling order, and moves a row to a new parent. |
 | `screens/home_page.dart` | First screen. "Add new pack" button and the list of Packs. Tapping a Pack opens its detail page. |
 | `screens/pack_detail_page.dart` | Shows one Pack in view mode, edit mode, or move mode. Holds the in-memory Pack tree and the pending move, and is the only screen that writes to the database. |
-| `screens/add_edit_page.dart` | Shared "Add new" form: Name only for Packs, Name + Type (Nest / Item) for everything else. |
+| `screens/add_edit_page.dart` | Shared "Add new" and "Edit name" form. |
 | `widgets/view_tree.dart` | Read-only recursive widget that draws the box-inside-a-box tree. Also reused to show dimmed, non-interactive sections during a move. |
-| `widgets/edit_tree.dart` | Edit-mode rendering: kebab-menu rows, "Add new" tiles, and "Move here" slots. Also contains `MoveSession` (the pending-move state), the 4-level depth limit (`kMaxNestDepth`), and tree-walking helpers. |
+| `widgets/edit_tree.dart` | Edit-mode rendering: kebab-menu rows, "Add new" tiles, and "Move here" slots. |
+| `widgets/move_feature.dart` | `MoveSession` (the pending-move state) and tree-walking helpers. |
+| `widgets/app_drawer.dart` | Drawer's contents: quick access for add new pack button and go to other pack. |

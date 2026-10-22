@@ -382,6 +382,13 @@ class _PackDetailPageState extends State<PackDetailPage> {
       padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
       child: Row(
         children: [
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: Colors.grey),
+              tooltip: 'Edit name',
+              onPressed: () => _editNode(pack),
+            ),
+          ],
           // pack name
           Expanded(
             child: Text(
